@@ -62,6 +62,7 @@ module Postgres
                   participant_name character varying(512))})
 
       pg.exec("CREATE INDEX #{table_name}_wfid_index ON #{table_name} USING btree (wfid)")
+      pg.exec("ALTER TABLE ONLY #{table_name} ADD CONSTRAINT #{table_name}_pkey PRIMARY KEY (typ, ide, rev)")
     end
 
   end
@@ -244,6 +245,7 @@ module Postgres
 
       @pg.exec("DELETE FROM #{@table}")
     end
+    alias :clear :purge!
 
     # Calls #disconnect on the db. According to pg's doc, it closes
     # all the idle connections in the pool (not the active ones).
@@ -272,8 +274,7 @@ module Postgres
     #
     def purge_type!(type)
 
-      @pg.exec(%{DELETE FROM #{@table}
-                 WHERE typ='#{doc['type']}'})
+      @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
     end
 
     # A provision made for workitems, allow to query them directly by
@@ -376,9 +377,9 @@ module Postgres
       # Thanks Geoff Herney
       #
       @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
-                 VALUES('#{(doc['_id'] || '')}',
-                        #{(rev || '')},
-                        '#{(doc['type'] || '')}',
+                 VALUES('#{(doc['_id'])}',
+                        #{(rev || 1)},
+                        '#{(doc['type'])}',
                         '#{(Rufus::Json.encode(doc) || '')}',
                         '#{(extract_wfid(doc) || '')}',
                         '#{(doc['participant_name'] || '')}')})

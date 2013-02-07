@@ -18,7 +18,7 @@ describe Ruote::Postgres do
       end
 
       it "it don't create the table if already exist" do
-        pg.exec("CREATE TABLE #{table_name} (ide character varying(255) NOT NULL)")
+        create_table(pg, table_name)
         klass.create_table(pg)
 
         columns(pg, table_name).should =~ %w{ ide }
@@ -33,7 +33,7 @@ describe Ruote::Postgres do
 
     describe "with re_create set to true" do
       it "it removes the table if it already exist" do
-        pg.exec("CREATE TABLE #{table_name} (ide character varying(255) NOT NULL)")
+        create_table(pg, table_name)
         klass.create_table(pg, true)
 
         columns(pg, table_name).should =~ %w{ ide rev typ doc wfid participant_name }
@@ -53,7 +53,7 @@ describe Ruote::Postgres do
 
   describe "#table_exists?" do
     it "returns true if it exists" do
-      pg.exec("CREATE TABLE #{table_name} (ide character varying(255) NOT NULL)")
+      create_table(pg, table_name)
       klass.table_exists?(pg, table_name).should be_true
     end
 

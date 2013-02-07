@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    ruote-postgres (2.3.1)
+    ruote-postgres (0.0.1)
       json
       pg (= 0.14.1)
       rake
