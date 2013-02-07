@@ -47,16 +47,20 @@ describe Ruote::Postgres::Storage do
     subject { Ruote::Postgres::Storage.new(pg) }
 
     describe "#put" do
-      before do
-      end
-
       it "returns true if de document has been deleted from the store" do
+        subject.put({"type" => "expressions", "_id" => "4", "_rev" => 1}).should be_true
       end
 
       it "returns a document if the revision has changed" do
+        doc = insert(pg, table_name, typ: 'expressions', ide: '4', wfid: "ef5678", rev: 2, doc: {"e" => "f"})
+
+        subject.put({"type" => "expressions", "_id" => "4", "_rev" => 1}).should == doc
       end
 
       it "returns nil when the document is successfully stored" do
+        insert(pg, table_name, typ: 'expressions', ide: '4', wfid: "ef5678", rev: 1, doc: {"e" => "f"})
+
+        subject.put({"type" => "expressions", "_id" => "4", "_rev" => 1}).should be_nil
       end
 
     end
@@ -100,8 +104,8 @@ describe Ruote::Postgres::Storage do
 
       describe "without opts" do
         it "return an array of matching documents whitout any opts" do
-          subject.get_many("expressions").should =~ [{"type" => "expressions", "_id" => "3", "c" => "d"},
-                                                     {"type" => "expressions", "_id" => "2", "a" => "b"}]
+          subject.get_many("expressions").should =~ [{"type" => "expressions", "_id" => "3", "_rev" => 1, "c" => "d"},
+                                                     {"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}]
         end
       end
 
@@ -118,18 +122,18 @@ describe Ruote::Postgres::Storage do
 
         describe ":descending" do
           it "returns the list sorted by ide descending" do
-            subject.get_many("expressions", nil, descending: true).should =~ [{"type" => "expressions", "_id" => "3", "c" => "d"},
-                                                                              {"type" => "expressions", "_id" => "2", "a" => "b"}]
+            subject.get_many("expressions", nil, descending: true).should =~ [{"type" => "expressions", "_id" => "3", "_rev" => 1, "c" => "d"},
+                                                                              {"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}]
           end
 
           it "returns the list sorted by ide descending with an explicit key" do
-            subject.get_many("expressions", "cd34", descending: true).should =~ [{"type" => "expressions", "_id" => "2", "a" => "b"}]
+            subject.get_many("expressions", "cd34", descending: true).should =~ [{"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}]
           end
         end
 
         describe ":skip" do
           it "returns the list skiping some results" do
-            subject.get_many("expressions", nil, skip: 1).should =~ [{"type" => "expressions", "_id" => "3", "c" => "d"}]
+            subject.get_many("expressions", nil, skip: 1).should =~ [{"type" => "expressions", "_id" => "3", "_rev" => 1, "c" => "d"}]
           end
 
           it "returns the list skiping some reslts with an explicit key" do
@@ -139,11 +143,11 @@ describe Ruote::Postgres::Storage do
 
         describe ":limit" do
           it "returns the list limiting some results" do
-            subject.get_many("expressions", nil, limit: 1).should =~ [{"type" => "expressions", "_id" => "2", "a" => "b"}]
+            subject.get_many("expressions", nil, limit: 1).should =~ [{"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}]
           end
 
           it "returns the list limiting some reslts with an explicit key" do
-            subject.get_many("expressions", "cd34", limit: 1).should =~ [{"type" => "expressions", "_id" => "2", "a" => "b"}]
+            subject.get_many("expressions", "cd34", limit: 1).should =~ [{"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}]
           end
         end
       end

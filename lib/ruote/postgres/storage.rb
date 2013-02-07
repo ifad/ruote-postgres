@@ -152,7 +152,7 @@ module Postgres
         d = get(doc['type'], doc['_id'])
 
         return true unless d
-        return d if d['_rev'] != doc['_rev']
+        return d if d['_rev'].to_i != doc['_rev'].to_i
           # failures
       end
 
@@ -172,6 +172,7 @@ module Postgres
                  WHERE typ='#{doc['type']}' AND
                        ide='#{doc['_id']}' AND
                        rev<#{nrev}})
+
       nil
         # success
     end
