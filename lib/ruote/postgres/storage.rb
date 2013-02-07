@@ -191,7 +191,7 @@ module Postgres
       count = @pg.exec(%{DELETE FROM #{@table}
                          WHERE typ='#{doc['type']}' AND
                                ide='#{doc['_id']}' AND
-                               rev<#{nrev}
+                               rev<#{doc['_rev'].to_i}
                          RETURNING *}).count
 
       return (get(doc['type'], doc['_id']) || true) if count < 1

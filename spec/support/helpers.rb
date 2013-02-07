@@ -17,11 +17,12 @@ module Ruote
       end
 
       def insert(pg, table, data = { })
+        j_doc = Rufus::Json.encode(({"type" => data[:typ], "_id" => data[:ide]}).merge(data[:doc] || {a: :b}))
         doc = pg.exec(%{INSERT INTO #{table}(ide, rev, typ, doc, wfid, participant_name)
                         VALUES('#{(data[:ide])}',
                                #{(data[:rev] || 1)},
                                '#{(data[:typ])}',
-                               '#{(Rufus::Json.encode(data[:doc] || {a: :b}))}',
+                               '#{j_doc}',
                                '#{(data[:wfid] || '')}',
                                '#{(data[:participant_name] || '')}')
                         RETURNING *})[0]["doc"]
