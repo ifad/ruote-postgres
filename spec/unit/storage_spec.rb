@@ -97,9 +97,13 @@ describe Ruote::Postgres::Storage do
 
     describe "#ids" do
       before do
+        insert(pg, table_name, typ: 'msgs', ide: '1')
+        insert(pg, table_name, typ: 'expressions', ide: '2')
+        insert(pg, table_name, typ: 'expressions', ide: '3')
       end
 
       it "returns a list of id's for the matching documents" do
+        subject.ids("expressions").should =~ [ '2', '3' ]
       end
     end
 
