@@ -1,0 +1,5 @@
+
+= ruote-postgres - CHANGELOG.txt
+
+- initial release
+

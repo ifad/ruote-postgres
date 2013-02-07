@@ -1,0 +1,12 @@
+
+= ruote-postgres CREDITS.txt
+
+
+== authors
+
+- Lleïr Borràs Metje - https://github.com/lleirborras
+- Peter Brindisi - https://github.com/npj
+- Marcello Barnaba - https://github.com/vjt
+- Amedeo Paglione - https://github.com/amedeo
+- Emili Parreño - https://github.com/eparreno
+
