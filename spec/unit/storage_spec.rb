@@ -86,12 +86,57 @@ describe Ruote::Postgres::Storage do
 
     describe "#get_many" do
       before do
+        insert(pg, table_name, typ: 'msgs', ide: '1', wfid: "ab12", doc: {"h" => "h"})
+        insert(pg, table_name, typ: 'expressions', ide: '2', wfid: "cd34")
+        insert(pg, table_name, typ: 'expressions', ide: '3', wfid: "ef56", doc: {"c" => "d"})
       end
 
-      it "returns the number of matching documents as an integer" do
+      describe "without opts" do
+        it "return an array of matching documents whitout any opts" do
+          subject.get_many("expressions").should =~ [{"c" => "d"}, {"a" => "b"}]
+        end
       end
 
-      it "returns an array of matching documents" do
+      describe "with opts" do
+        describe ":count" do
+          it "returns the number of matching documents without explicit key as an integer" do
+            subject.get_many("expressions", nil, count: true).should == 2
+          end
+
+          it "returns the number of matching documents with a matching key as an integer" do
+            subject.get_many("expressions", "cd34", count: true).should == 1
+          end
+        end
+
+        describe ":descending" do
+          it "returns the list sorted by ide descending" do
+            subject.get_many("expressions", nil, descending: true).should =~ [{"c" => "d"}, {"a" => "b"}]
+          end
+
+          it "returns the list sorted by ide descending with an explicit key" do
+            subject.get_many("expressions", "cd34", descending: true).should =~ [{"a" => "b"}]
+          end
+        end
+
+        describe ":skip" do
+          it "returns the list skiping some results" do
+            subject.get_many("expressions", nil, skip: 1).should =~ [{"c" => "d"}]
+          end
+
+          it "returns the list skiping some reslts with an explicit key" do
+            subject.get_many("expressions", "cd34", skip: 1).should =~ []
+          end
+        end
+
+        describe ":limit" do
+          it "returns the list limiting some results" do
+            subject.get_many("expressions", nil, limit: 1).should =~ [{"a" => "b"}]
+          end
+
+          it "returns the list limiting some reslts with an explicit key" do
+            subject.get_many("expressions", "cd34", limit: 1).should =~ [{"a" => "b"}]
+          end
+        end
       end
     end
 

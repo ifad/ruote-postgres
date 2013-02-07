@@ -212,12 +212,13 @@ module Postgres
 
       ds += " AND wfid in ('#{keys.join("','")}') " if keys && keys.first.is_a?(String)
 
-      return @pg.exec("SELECT count(*) as count" + ds)[0]["count"] if opts[:count]
+      return @pg.exec("SELECT count(*) as count" + ds)[0]["count"].to_i if opts[:count]
 
       ds += " ORDER BY ide #{opts[:descending] ? "DESC" : "ASC"}, rev DESC"
-      ds += " LIMIT #{opts[:limit]} OFFSET #{opts[:skip] || opts[:offset]} "
+      ds += " LIMIT #{opts[:limit]} " if opts[:limit]
+      ds += " OFFSET #{opts[:skip] || opts[:offset]} " if opts[:skip] || opts[:offset]
 
-      docs = select_last_revs(ds)
+      docs = select_last_revs(@pg.exec("SELECT * " + ds))
       docs = docs.collect { |d| decode_doc(d) }
 
       if keys && keys.first.is_a?(Regexp)
@@ -286,7 +287,7 @@ module Postgres
 
       docs = " FROM #{@table} WHERE typ='#{type}' AND participant_name='#{participant_name}' "
 
-      return @pg.exec("SELECT count(*) as count" + docs)[0]["count"] if opts[:count]
+      return @pg.exec("SELECT count(*) as count" + docs)[0]["count"].to_i if opts[:count]
 
       docs += " ORDER BY ide ASC, rev DESC"
       docs += " LIMIT #{opts[:limit]} OFFSET #{opts[:offset] || opts[:skip]} "
@@ -306,7 +307,7 @@ module Postgres
 
       docs = " FROM #{@table} WHERE typ='#{type}' AND doc like '#{lk.join}' "
 
-      return @pg.exec("SELECT count(*) as count" + docs)[0]["count"] if opts[:count]
+      return @pg.exec("SELECT count(*) as count" + docs)[0]["count"].to_i if opts[:count]
 
       docs += " ORDER BY ide ASC, rev DESC"
       docs += " LIMIT #{opts[:limit]} OFFSET #{opts[:offset] || opts[:skip]} "
@@ -335,7 +336,7 @@ module Postgres
         ds += " AND doc like '%\"#{k}\":#{Rufus::Json.encode(v)}%' "
       end
 
-      return @pg.exec("SELECT count(*) as count" + ds)[0]["count"] if count
+      return @pg.exec("SELECT count(*) as count" + ds)[0]["count"].to_i if count
 
       ds += " ORDER BY ide ASC, rev DESC LIMIT #{limit} OFFSET #{offset}"
 
@@ -407,10 +408,11 @@ module Postgres
     # are rare, the cost of the pumped SQL is not constant :-(
     #
     def select_last_revs(docs)
+      a = []
 
-      docs.each_with_object([]) { |doc, a|
-        a << doc if a.last.nil? || doc["ide"] != a.last["ide"]
-      }
+      docs.collect{ |doc| a << doc if a.last.nil? || doc["ide"] != a.last["ide"] }
+
+      a
     end
 
     #--

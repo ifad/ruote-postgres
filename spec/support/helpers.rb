@@ -21,7 +21,7 @@ module Ruote
                         VALUES('#{(data[:ide])}',
                                #{(data[:rev] || 1)},
                                '#{(data[:typ])}',
-                               '#{(data[:doc] || Rufus::Json.encode({a: :b}))}',
+                               '#{(Rufus::Json.encode(data[:doc] || {a: :b}))}',
                                '#{(data[:wfid] || '')}',
                                '#{(data[:participant_name] || '')}')
                         RETURNING *})[0]["doc"]
