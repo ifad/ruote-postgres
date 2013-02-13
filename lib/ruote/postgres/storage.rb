@@ -108,44 +108,9 @@ module Postgres
       replace_engine_configuration(options)
     end
 
-    def put_msg(action, options)
-
-      # put_msg is a unique action, no need for all the complexity of put
-
-      do_insert(prepare_msg_doc(action, options), 1)
-
-      nil
-    end
-
-    # Used to reserve 'msgs' and 'schedules'. Simply deletes the document,
-    # return true if the delete was successful (ie if the reservation is
-    # valid).
-    #
-    def reserve(doc)
-
-      @pg.exec(%{DELETE FROM #{@table}
-                 WHERE typ='#{doc['type']}' AND
-                       ide='#{doc['_id']}' AND
-                       rev=1
-                 RETURNING *}).count > 0
-    end
-
-    def put_schedule(flavour, owner_fei, s, msg)
-
-      # put_schedule is a unique action, no need for all the complexity of put
-
-      doc = prepare_schedule_doc(flavour, owner_fei, s, msg)
-
-      return nil unless doc
-
-      do_insert(doc, 1)
-
-      doc['_id']
-    end
-
     def put(doc, opts={})
 
-      cache_clear(doc)
+      #cache_clear(doc)
 
       if doc['_rev']
 
@@ -179,20 +144,21 @@ module Postgres
 
     def get(type, key)
 
-      cache_get(type, key) || do_get(type, key)
+      #cache_get(type, key) || do_get(type, key)
+      do_get(type, key)
     end
 
     def delete(doc)
 
       raise ArgumentError.new('no _rev for doc') unless doc['_rev']
 
-      cache_clear(doc)
+      #cache_clear(doc)
         # usually not necessary, adding it not to forget it later on
 
       count = @pg.exec(%{DELETE FROM #{@table}
                          WHERE typ='#{doc['type']}' AND
                                ide='#{doc['_id']}' AND
-                               rev<#{doc['_rev'].to_i}
+                               rev=#{doc['_rev'].to_i}
                          RETURNING *}).count
 
       return (get(doc['type'], doc['_id']) || true) if count < 1
@@ -204,8 +170,8 @@ module Postgres
 
     def get_many(type, key=nil, opts={})
 
-      cached = cache_get_many(type, key, opts)
-      return cached if cached
+      #cached = cache_get_many(type, key, opts)
+      #return cached if cached
 
       ds = " FROM #{@table} WHERE typ='#{type}' "
 
@@ -219,8 +185,7 @@ module Postgres
       ds += " LIMIT #{opts[:limit]} " if opts[:limit]
       ds += " OFFSET #{opts[:skip] || opts[:offset]} " if opts[:skip] || opts[:offset]
 
-      docs = select_last_revs(@pg.exec("SELECT * " + ds))
-      docs = docs.collect { |d| decode_doc(d) }
+      docs = @pg.exec("SELECT * " + ds).collect { |d| decode_doc(d) }
 
       if keys && keys.first.is_a?(Regexp)
         docs.select { |doc| keys.find { |key| key.match(doc['_id']) } }
@@ -254,7 +219,7 @@ module Postgres
     #
     def shutdown
 
-      @pg.close
+      #@pg.close
     end
 
     # Grrr... I should sort the mess between close and shutdown...
@@ -262,7 +227,7 @@ module Postgres
     #
     def close
 
-      @pg.close
+      #@pg.close
     end
 
     # Mainly used by ruote's test/unit/ut_17_storage.rb
@@ -279,206 +244,55 @@ module Postgres
       @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
     end
 
-    # A provision made for workitems, allow to query them directly by
-    # participant name.
-    #
-    def by_participant(type, participant_name, opts={})
-
-      raise NotImplementedError if type != 'workitems'
-
-      docs = " FROM #{@table} WHERE typ='#{type}' AND participant_name='#{participant_name}' "
-
-      return @pg.exec("SELECT count(*) as count" + docs)[0]["count"].to_i if opts[:count]
-
-      docs += " ORDER BY ide ASC, rev DESC"
-      docs += " LIMIT #{opts[:limit]} OFFSET #{opts[:offset] || opts[:skip]} "
-
-      select_last_revs(docs).collect { |d| Ruote::Workitem.from_json(d["doc"]) }
-    end
-
-    # Querying workitems by field (warning, goes deep into the JSON structure)
-    #
-    def by_field(type, field, value, opts={})
-
-      raise NotImplementedError if type != 'workitems'
-
-      lk = [ '%"', field, '":' ]
-      lk.push(Rufus::Json.encode(value)) if value
-      lk.push('%')
-
-      docs = " FROM #{@table} WHERE typ='#{type}' AND doc like '#{lk.join}' "
-
-      return @pg.exec("SELECT count(*) as count" + docs)[0]["count"].to_i if opts[:count]
-
-      docs += " ORDER BY ide ASC, rev DESC"
-      docs += " LIMIT #{opts[:limit]} OFFSET #{opts[:offset] || opts[:skip]} "
-
-      select_last_revs(docs).collect { |d| Ruote::Workitem.from_json(d["doc"]) }
-    end
-
-    def query_workitems(criteria)
-
-      ds = " FROM #{@table} WHERE typ='workitems' "
-
-      count = criteria.delete('count')
-
-      limit = criteria.delete('limit')
-      offset = criteria.delete('offset') || criteria.delete('skip')
-
-      wfid =
-        criteria.delete('wfid')
-      pname =
-        criteria.delete('participant_name') || criteria.delete('participant')
-
-      ds += " AND ide like '%!#{wfid}' " if wfid
-      ds += " AND participant_name='#{pname}' " if pname
-
-      criteria.collect do |k, v|
-        ds += " AND doc like '%\"#{k}\":#{Rufus::Json.encode(v)}%' "
-      end
-
-      return @pg.exec("SELECT count(*) as count" + ds)[0]["count"].to_i if count
-
-      ds += " ORDER BY ide ASC, rev DESC LIMIT #{limit} OFFSET #{offset}"
-
-      select_last_revs(ds).collect { |d| Ruote::Workitem.from_json(d["doc"]) }
-    end
-
-    # Used by the worker to indicate a new step begins. For ruote-sequel,
-    # it means the cache can be prepared (a unique select yielding
-    # all the info necessary for one worker step (expressions excluded)).
-    #
-    def begin_step
-
-      prepare_cache
-    end
-
     protected
 
-    def decode_doc(doc)
+      def decode_doc(doc)
 
-      return nil if doc.nil?
+        return nil if doc.nil?
 
-      doc = doc["doc"]
-      doc = doc.read if doc.respond_to?(:read)
+        doc = doc["doc"]
+        doc = doc.read if doc.respond_to?(:read)
 
-      Rufus::Json.decode(doc)
-    end
-
-    def do_insert(doc, rev, update_rev=false)
-
-      doc = doc.send(
-        update_rev ? :merge! : :merge,
-        { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
-
-      # Use bound variables
-      # http://sequel.rubyforge.org/rdoc/files/doc/prepared_statements_rdoc.html
-      #
-      # That makes Oracle happy (the doc field might > 4000 characters)
-      #
-      # Thanks Geoff Herney
-      #
-      @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
-                 VALUES('#{(doc['_id'])}',
-                        #{(rev || 1)},
-                        '#{(doc['type'])}',
-                        '#{(Rufus::Json.encode(doc) || '')}',
-                        '#{(extract_wfid(doc) || '')}',
-                        '#{(doc['participant_name'] || '')}')})
-    end
-
-    def extract_wfid(doc)
-
-      doc['wfid'] || (doc['fei'] ? doc['fei']['wfid'] : nil)
-    end
-
-    def do_get(type, key)
-
-      d = @pg.exec(%{SELECT doc FROM #{@table}
-                     WHERE typ='#{type}' AND
-                           ide='#{key}'
-                     ORDER BY rev DESC
-                     LIMIT 1 OFFSET 0})
-
-      decode_doc(d[0]) if d.count > 0
-    end
-
-    # Weed out older docs (same ide, smaller rev).
-    #
-    # This could all have been done via SQL, but those inconsistencies
-    # are rare, the cost of the pumped SQL is not constant :-(
-    #
-    def select_last_revs(docs)
-      a = []
-
-      docs.collect{ |doc| a << doc if a.last.nil? || doc["ide"] != a.last["ide"] }
-
-      a
-    end
-
-    #--
-    # worker step cache
-    #
-    # in order to cut down the number of selects, do one select with
-    # all the information the worker needs for one step of work
-    #++
-
-    CACHED_TYPES = %w[ msgs schedules configurations variables ]
-
-    # One select to grab in all the info necessary for a worker step
-    # (expressions excepted).
-    #
-    def prepare_cache
-
-      CACHED_TYPES.each { |t| cache[t] = {} }
-
-      @pg.exec(%{SELECT ide, typ, doc FROM #{@table}
-                     WHERE typ in ('#{CACHED_TYPES.join("','")}')
-                     ORDER BY ide ASC, rev DESC}).each do |d|
-        (cache[d["typ"]] ||= {})[d["ide"]] ||= decode_doc(d)
+        Rufus::Json.decode(doc)
       end
 
-      cache['variables']['trackers'] ||=
-        { '_id' => 'trackers', 'type' => 'variables', 'trackers' => {} }
-    end
+      def do_insert(doc, rev, update_rev=false)
 
-    # Ask the cache for a doc. Returns nil if it's not cached.
-    #
-    def cache_get(type, key)
+        doc = doc.send(
+          update_rev ? :merge! : :merge,
+          { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-      (cache[type] || {})[key]
-    end
-
-    # Ask the cache for a set of documents. Returns nil if it's not cached
-    # or caching is not OK.
-    #
-    def cache_get_many(type, keys, options)
-
-      if !options[:batch] && CACHED_TYPES.include?(type) && cache[type]
-        cache[type].values
-      else
-        nil
+        # Use bound variables
+        # http://sequel.rubyforge.org/rdoc/files/doc/prepared_statements_rdoc.html
+        #
+        # That makes Oracle happy (the doc field might > 4000 characters)
+        #
+        # Thanks Geoff Herney
+        #
+        @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
+                   VALUES('#{(doc['_id'])}',
+                          #{(rev || 1)},
+                          '#{(doc['type'])}',
+                          '#{(Rufus::Json.encode(doc) || '')}',
+                          '#{(extract_wfid(doc) || '')}',
+                          '#{(doc['participant_name'] || '')}')})
       end
-    end
 
-    # Removes a document from the cache.
-    #
-    def cache_clear(doc)
+      def extract_wfid(doc)
 
-      (cache[doc['type']] || {}).delete(doc['_id'])
-    end
+        doc['wfid'] || (doc['fei'] ? doc['fei']['wfid'] : nil)
+      end
 
-    # Returns the cache for the given thread. Returns {} if there is no
-    # cache available.
-    #
-    def cache
+      def do_get(type, key)
 
-      worker = Thread.current['ruote_worker']
+        d = @pg.exec(%{SELECT doc FROM #{@table}
+                       WHERE typ='#{type}' AND
+                             ide='#{key}'
+                       ORDER BY rev DESC
+                       LIMIT 1 OFFSET 0})
 
-      return {} unless worker
-
-      (Thread.current["cache_#{worker.name}"] ||= {})
-    end
+        decode_doc(d[0]) if d.count > 0
+      end
   end
 end
 end
