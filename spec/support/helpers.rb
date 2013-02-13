@@ -1,6 +1,12 @@
 module Ruote
   module Postgres
     module Helpers
+      def db_connect()
+        config = YAML.load_file(File.expand_path("../../config/database.yml", __FILE__))[ENV["RAILS_ENV"] || ENV["RACK_ENV"] || "test"]
+
+        PG.connect(config)
+      end
+
       def columns(pg, table)
         pg.exec(%{SELECT attname FROM pg_attribute, pg_type
                   WHERE typname = '#{table}'

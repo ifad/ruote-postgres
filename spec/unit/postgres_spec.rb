@@ -1,7 +1,7 @@
 require 'spec_helper'
 
 describe Ruote::Postgres do
-  let(:pg)         { PG.connect(dbname: 'ruote_test', user: 'ruote', password: 'ruote') }
+  let(:pg)         { db_connect }
   let(:klass)      { Ruote::Postgres }
   let(:table_name) { "documents" }
 

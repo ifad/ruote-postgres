@@ -1,7 +1,7 @@
 require 'spec_helper'
 
 describe Ruote::Postgres::Storage do
-  let(:pg)         { PG.connect(dbname: 'ruote_test', user: 'ruote', password: 'ruote') }
+  let(:pg)         { db_connect }
   let(:table_name) { "documents" }
 
   before do
@@ -91,7 +91,7 @@ describe Ruote::Postgres::Storage do
       end
 
       it "returns nil when successfully removed" do
-        subject.delete({"type" => "expressions", "_id" => "3", "_rev" => 1}).should be_true
+        subject.delete({"type" => "expressions", "_id" => "3", "_rev" => 1}).should be_nil
       end
     end
 
