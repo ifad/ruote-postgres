@@ -1,4 +1,3 @@
-
 # ruote-postgres
 
 Postgres storage implementation for ruote >= 2.2.0
@@ -35,7 +34,7 @@ opts = { 'table_name' => 'ruote_docs' }
 
 engine = Ruote::Engine.new(
   Ruote::Worker.new(
-    Ruote::Postgres::Storage.new(pg, true, opts)))
+    Ruote::Postgres::Storage.new(pg, opts)))
 ```
 
 ## running tests
