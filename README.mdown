@@ -1,13 +1,54 @@
 
 # ruote-postgres
 
-Sequel storage implementation for ruote >= 2.2.0
-
+Postgres storage implementation for ruote >= 2.2.0
 
 ## usage
 
+This is how a ruote engine is setup with a ruote-postgres storage and a worker :
+
+```ruby
+require 'rubygems'
+require 'json' # gem install json
+require 'ruote'
+require 'ruote-postgres' # gem install ruote-postgres
+
+pg = PG.connect(dbname: "foobars", user: "foo", password: "bars")
+
+engine = Ruote::Engine.new(
+  Ruote::Worker.new(
+    Ruote::Postgres::Storage.new(pg)))
+```
+
+To create the table in the database :
+
+```ruby
+Ruote::Postgres.create_table(pg, true)
+```
+
+Tested with pg 0.14.1.
+
+A single 'documents' table is used. To change this name :
+
+```ruby
+opts = { 'table_name' => 'ruote_docs' }
+
+engine = Ruote::Engine.new(
+  Ruote::Worker.new(
+    Ruote::Postgres::Storage.new(pg, true, opts)))
+```
 
 ## running tests
+
+Configure the database connection in spec/config/database.yml
+
+Install required gems using bundler
+
+    $ bundle install
+    
+Run the tests
+    
+    $ bundle exec rspec spec/unit/*_spec.rb
 
 
 ## license
@@ -17,7 +58,19 @@ MIT
 
 ## links
 
+http://github.com/ifad/ruote-postgres
 
-## feedback
 
+## developers
 
+[IFAD - ICT](http://github.com/ifad)
+
+**Lleïr Borràs** <http://github.com/lleirborras>
+
+**Amedeo Paglione** <http://github.com/amedeo>
+
+**Emili Parreño** <http://github.com/eparreno>
+
+**Peter Brindisi** <http://github.com/npj>
+
+**Marcello Barnaba** <http://github.com/vjt>
