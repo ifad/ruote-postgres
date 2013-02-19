@@ -57,7 +57,7 @@ module Postgres
                   ide character varying(255) NOT NULL,
                   rev integer NOT NULL,
                   typ character varying(55) NOT NULL,
-                  doc text NOT NULL,
+                  doc #{has_json?(pg) ? "json" : "text"} NOT NULL,
                   wfid character varying(255),
                   participant_name character varying(512))})
 
@@ -72,6 +72,15 @@ module Postgres
                             FROM pg_class
                             WHERE relname='#{table_name}' AND relkind='r')
                      as result;})[0]["result"] == "t"
+  end
+
+  def self.server_version(pg)
+    pg.exec("show server_version")[0]["server_version"].split(".").map(&:to_i)
+  end
+
+  def self.has_json?(pg)
+    version = server_version(pg)
+    version[0] >= 9 && version[1] >= 2
   end
 
   #
@@ -101,17 +110,13 @@ module Postgres
     attr_reader :pg
 
     def initialize(pg, options={})
-
-      @pg    = pg
-      @table = (options['pg_table_name'] || :documents).to_sym
+      @pg      = pg
+      @table   = (options['pg_table_name'] || :documents).to_sym
 
       replace_engine_configuration(options)
     end
 
     def put(doc, opts={})
-
-      #cache_clear(doc)
-
       if doc['_rev']
 
         d = get(doc['type'], doc['_id'])
@@ -136,24 +141,18 @@ module Postgres
       @pg.exec(%{DELETE FROM #{@table}
                  WHERE typ='#{doc['type']}' AND
                        ide='#{doc['_id']}' AND
-                       rev<#{nrev}})
+                       rev=#{nrev}})
 
       nil
         # success
     end
 
     def get(type, key)
-
-      #cache_get(type, key) || do_get(type, key)
       do_get(type, key)
     end
 
     def delete(doc)
-
       raise ArgumentError.new('no _rev for doc') unless doc['_rev']
-
-      #cache_clear(doc)
-        # usually not necessary, adding it not to forget it later on
 
       count = @pg.exec(%{DELETE FROM #{@table}
                          WHERE typ='#{doc['type']}' AND
@@ -169,10 +168,6 @@ module Postgres
     end
 
     def get_many(type, key=nil, opts={})
-
-      #cached = cache_get_many(type, key, opts)
-      #return cached if cached
-
       ds = " FROM #{@table} WHERE typ='#{type}' "
 
       keys = key ? Array(key) : nil
@@ -200,7 +195,6 @@ module Postgres
     # Returns all the ids of the documents of a given type.
     #
     def ids(type)
-
       @pg.exec(%{SELECT DISTINCT(ide) FROM #{@table}
                  WHERE typ='#{type}'
                  ORDER BY ide}).collect{|row| row["ide"]}
@@ -209,7 +203,6 @@ module Postgres
     # Nukes all the documents in this storage.
     #
     def purge!
-
       @pg.exec("DELETE FROM #{@table}")
     end
     alias :clear :purge!
@@ -218,57 +211,45 @@ module Postgres
     # all the idle connections in the pool (not the active ones).
     #
     def shutdown
-
-      #@pg.close
+      @pg.finish
     end
 
     # Grrr... I should sort the mess between close and shutdown...
     # Tests vs production :-(
     #
     def close
-
-      #@pg.close
-    end
+      @pg.finish
+	end
 
     # Mainly used by ruote's test/unit/ut_17_storage.rb
     #
     def add_type(type)
-
       # does nothing, types are differentiated by the 'typ' column
     end
 
     # Nukes a db type and reputs it (losing all the documents that were in it).
     #
     def purge_type!(type)
-
       @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
     end
 
     protected
 
       def decode_doc(doc)
-
         return nil if doc.nil?
 
         doc = doc["doc"]
+
         doc = doc.read if doc.respond_to?(:read)
 
         Rufus::Json.decode(doc)
       end
 
       def do_insert(doc, rev, update_rev=false)
-
         doc = doc.send(
           update_rev ? :merge! : :merge,
           { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-        # Use bound variables
-        # http://sequel.rubyforge.org/rdoc/files/doc/prepared_statements_rdoc.html
-        #
-        # That makes Oracle happy (the doc field might > 4000 characters)
-        #
-        # Thanks Geoff Herney
-        #
         @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
                    VALUES('#{(doc['_id'])}',
                           #{(rev || 1)},
@@ -279,12 +260,10 @@ module Postgres
       end
 
       def extract_wfid(doc)
-
         doc['wfid'] || (doc['fei'] ? doc['fei']['wfid'] : nil)
       end
 
       def do_get(type, key)
-
         d = @pg.exec(%{SELECT doc FROM #{@table}
                        WHERE typ='#{type}' AND
                              ide='#{key}'
@@ -292,6 +271,14 @@ module Postgres
                        LIMIT 1 OFFSET 0})
 
         decode_doc(d[0]) if d.count > 0
+      end
+
+      def server_version
+        @server_version ||= @pg.exec("show server_version")[0]["server_version"].split(".").map(&:to_i)
+      end
+
+      def has_json?
+        server_version[0] >= 9 && server_version[1] >= 2
       end
   end
 end

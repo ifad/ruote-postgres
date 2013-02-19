@@ -5,4 +5,5 @@ test:
   dbname:
   user:
   password:
-
+  host:
+  port:
