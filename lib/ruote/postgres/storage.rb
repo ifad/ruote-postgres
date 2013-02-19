@@ -91,7 +91,7 @@ module Postgres
   #   require 'ruote'
   #   require 'ruote-postgres' # gem install ruote-postgres
   #
-  #   sequel = PG.connect(dbname: 'ruote_test', user: 'ruote', password: 'ruote')
+  #   opg = PG.connect(dbname: 'ruote_test', user: 'ruote', password: 'ruote')
   #
   #   opts = { 'remote_definition_allowed' => true }
   #
@@ -105,7 +105,7 @@ module Postgres
 
     include Ruote::StorageBase
 
-    # The underlying Sequel::Database instance
+    # The underlying Postgres::Database instance
     #
     attr_reader :pg
 
