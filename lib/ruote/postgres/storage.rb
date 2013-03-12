@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #--
 # Copyright (c) 2013-2013, Lleïr Borràs Metje, l.borrasmetje@ifad.ord
 #
@@ -141,7 +142,7 @@ module Postgres
       @pg.exec(%{DELETE FROM #{@table}
                  WHERE typ='#{doc['type']}' AND
                        ide='#{doc['_id']}' AND
-                       rev=#{nrev}})
+                       rev<#{nrev}})
 
       nil
         # success
