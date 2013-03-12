@@ -47,7 +47,14 @@ describe Ruote::Postgres::Storage do
     subject { Ruote::Postgres::Storage.new(pg) }
 
     describe "#put" do
-      it "returns true if de document has been deleted from the store" do
+      context "with new document" do
+        it "works" do
+          subject.put({ "type" => "expressions", "_id" => "1" })
+          pg.query("select * from documents").values.should_not be_empty
+        end
+      end
+
+      it "returns true if the document has been deleted from the store" do
         subject.put({"type" => "expressions", "_id" => "4", "_rev" => 1}).should be_true
       end
 
