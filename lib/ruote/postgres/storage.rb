@@ -109,10 +109,12 @@ module Postgres
     # The underlying Postgres::Database instance
     #
     attr_reader :pg
+    attr_reader :pg_channel
 
     def initialize(pg, options={})
-      @pg      = pg
-      @table   = (options['pg_table_name'] || :documents).to_sym
+      @pg         = pg
+      @pg_channel = "ruote_postgres_#{Time.now.to_i}"
+      @table      = (options['pg_table_name'] || :documents).to_sym
 
       replace_engine_configuration(options)
     end
@@ -123,8 +125,7 @@ module Postgres
         d = get(doc['type'], doc['_id'])
 
         return true unless d
-        return d if d['_rev'].to_i != doc['_rev'].to_i
-          # failures
+        return d if d['_rev'].to_i != doc['_rev'].to_i # failures
       end
 
       nrev = doc['_rev'].to_i + 1
@@ -134,9 +135,7 @@ module Postgres
         do_insert(doc, nrev, opts[:update_rev])
 
       rescue ::PG::Error => de
-
-        return (get(doc['type'], doc['_id']) || true)
-          # failure
+        return (get(doc['type'], doc['_id']) || true) # failure
       end
 
       @pg.exec(%{DELETE FROM #{@table}
@@ -144,8 +143,9 @@ module Postgres
                        ide='#{doc['_id']}' AND
                        rev<#{nrev}})
 
-      nil
-        # success
+      notify('DELETE')
+
+      nil # success
     end
 
     def get(type, key)
@@ -161,11 +161,11 @@ module Postgres
                                rev=#{doc['_rev'].to_i}
                          RETURNING *}).count
 
-      return (get(doc['type'], doc['_id']) || true) if count < 1
-        # failure
+      return (get(doc['type'], doc['_id']) || true) if count < 1 # failure
 
-      nil
-        # success
+      notify('DELETE')
+
+      nil # success
     end
 
     def get_many(type, key=nil, opts={})
@@ -204,7 +204,11 @@ module Postgres
     # Nukes all the documents in this storage.
     #
     def purge!
-      @pg.exec("DELETE FROM #{@table}")
+      d = @pg.exec("DELETE FROM #{@table}")
+
+      notify('DELETE')
+
+      d
     end
     alias :clear :purge!
 
@@ -212,14 +216,14 @@ module Postgres
     # all the idle connections in the pool (not the active ones).
     #
     def shutdown
-      @pg.finish
+      #@pg.finish
     end
 
     # Grrr... I should sort the mess between close and shutdown...
     # Tests vs production :-(
     #
     def close
-      @pg.finish
+      #@pg.finish
 	end
 
     # Mainly used by ruote's test/unit/ut_17_storage.rb
@@ -231,7 +235,16 @@ module Postgres
     # Nukes a db type and reputs it (losing all the documents that were in it).
     #
     def purge_type!(type)
-      @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
+      d = @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
+
+      notify('DELETE')
+
+      d
+    end
+
+    def wait_for_notify(timeout = nil, &block)
+      @listen ||= @pg.exec("LISTEN #{@pg_channel}")
+      @pg.wait_for_notify(timeout, &block)
     end
 
     protected
@@ -251,13 +264,17 @@ module Postgres
           update_rev ? :merge! : :merge,
           { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-        @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
-                   VALUES('#{(doc['_id'])}',
-                          #{(rev || 1)},
-                          '#{(doc['type'])}',
-                          '#{(Rufus::Json.encode(doc) || '')}',
-                          '#{(extract_wfid(doc) || '')}',
-                          '#{(doc['participant_name'] || '')}')})
+        i = @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
+                            VALUES('#{(doc['_id'])}',
+                                   #{(rev || 1)},
+                                   '#{(doc['type'])}',
+                                   '#{(Rufus::Json.encode(doc) || '')}',
+                                   '#{(extract_wfid(doc) || '')}',
+                                   '#{(doc['participant_name'] || '')}')})
+
+        notify('INSERT')
+
+        i
       end
 
       def extract_wfid(doc)
@@ -280,6 +297,10 @@ module Postgres
 
       def has_json?
         server_version[0] >= 9 && server_version[1] >= 2
+      end
+
+      def notify msg
+        @pg.exec("NOTIFY #{@pg_channel}, '#{Time.now.to_f.to_s}::#{msg}'")
       end
   end
 end
