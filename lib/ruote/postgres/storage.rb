@@ -113,7 +113,7 @@ module Postgres
 
     def initialize(pg, options={})
       @pg         = pg
-      @pg_channel = "ruote_postgres_#{Time.now.to_i}"
+      @pg_channel = "ruote_postgres"
       @table      = (options['pg_table_name'] || :documents).to_sym
 
       replace_engine_configuration(options)
