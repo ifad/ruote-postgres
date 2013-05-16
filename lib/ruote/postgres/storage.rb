@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #--
-# Copyright (c) 2013-2013, Lleïr Borràs Metje, l.borrasmetje@ifad.ord
+# Copyright (c) 2013-2013, Lleir Borras Metje, l.borrasmetje@ifad.ord
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal

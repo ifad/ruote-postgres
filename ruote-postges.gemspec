@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   ).match(/ VERSION *= *['"]([^'"]+)/)[1]
 
   s.platform = Gem::Platform::RUBY
-  s.authors = [ 'Lleïr Borràs Metje' ]
+  s.authors = [ 'Lleir Borras Metje' ]
   s.email = [ 'l.borrasmetje@ifad.org' ]
   s.homepage = 'http://mine.ifad.org/git/ruote-postgres'
   s.summary = 'postgres storage for ruote (a workflow engine)'

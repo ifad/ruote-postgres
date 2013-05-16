@@ -44,9 +44,9 @@ Configure the database connection in spec/config/database.yml
 Install required gems using bundler
 
     $ bundle install
-    
+
 Run the tests
-    
+
     $ bundle exec rspec spec/unit/*_spec.rb
 
 
@@ -64,11 +64,11 @@ http://github.com/ifad/ruote-postgres
 
 [IFAD - ICT](http://github.com/ifad)
 
-**Lleïr Borràs** <http://github.com/lleirborras>
+**Lleir Borras** <http://github.com/lleirborras>
 
 **Amedeo Paglione** <http://github.com/amedeo>
 
-**Emili Parreño** <http://github.com/eparreno>
+**Emili Parreno** <http://github.com/eparreno>
 
 **Peter Brindisi** <http://github.com/npj>
 
