@@ -11,10 +11,11 @@ Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
   s.authors = [ 'Lleir Borras Metje' ]
   s.email = [ 'l.borrasmetje@ifad.org' ]
-  s.homepage = 'http://mine.ifad.org/git/ruote-postgres'
+  s.homepage = 'http://github.com/ifad/ruote-postgres'
   s.summary = 'postgres storage for ruote (a workflow engine)'
   s.description = %q{
-postgres storage for ruote (a workflow engine)
+postgres storage for ruote (a workflow engine) that uses
+LISTEN and NOTIFY to watch for events.
   }
 
   s.files = Dir[
