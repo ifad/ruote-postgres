@@ -27,7 +27,7 @@ LISTEN and NOTIFY to watch for events.
   s.add_runtime_dependency 'ruote'
 
   s.add_dependency 'rake'
-  s.add_dependency 'pg', '0.14.1'
+  s.add_dependency 'pg'
   s.add_dependency 'yajl-ruby'
   s.add_dependency 'json'
 
