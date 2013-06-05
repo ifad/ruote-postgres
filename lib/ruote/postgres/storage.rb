@@ -116,7 +116,8 @@ module Postgres
       @pg_channel = "ruote_postgres"
       @table      = (options['pg_table_name'] || :documents).to_sym
 
-      # FIXME remove me
+      # It is a good idea to unlisten first to ensure that non old instances or
+      # connections start spinning
       unlisten
 
       replace_engine_configuration(options)
