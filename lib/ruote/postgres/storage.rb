@@ -116,6 +116,9 @@ module Postgres
       @pg_channel = "ruote_postgres"
       @table      = (options['pg_table_name'] || :documents).to_sym
 
+      # FIXME remove me
+      unlisten
+
       replace_engine_configuration(options)
     end
 
@@ -212,19 +215,13 @@ module Postgres
     end
     alias :clear :purge!
 
-    # Calls #disconnect on the db. According to pg's doc, it closes
-    # all the idle connections in the pool (not the active ones).
-    #
     def shutdown
-      #@pg.finish
+      unlisten
     end
 
-    # Grrr... I should sort the mess between close and shutdown...
-    # Tests vs production :-(
-    #
     def close
-      #@pg.finish
-	end
+      unlisten
+    end
 
     # Mainly used by ruote's test/unit/ut_17_storage.rb
     #
@@ -243,7 +240,7 @@ module Postgres
     end
 
     def wait_for_notify(timeout = nil, &block)
-      @listen ||= @pg.exec("LISTEN #{@pg_channel}")
+      @listen ||= listen
       @pg.wait_for_notify(timeout, &block)
     end
 
@@ -299,8 +296,22 @@ module Postgres
         server_version[0] >= 9 && server_version[1] >= 2
       end
 
-      def notify msg
-        @pg.exec("NOTIFY #{@pg_channel}, '#{Time.now.to_f.to_s}::#{msg}'")
+      # Listen for notifications on the given channel
+      # http://www.postgresql.org/docs/current/static/sql-listen.html
+      def listen(channel = @pg_channel)
+        @pg.exec("LISTEN #{channel}")
+      end
+
+      # Notify the given message
+      # http://www.postgresql.org/docs/current/static/sql-notify.html
+      def notify(msg, channel = @pg_channel)
+        @pg.exec("NOTIFY #{channel}, '#{Time.now.to_f.to_s}::#{msg}'")
+      end
+
+      # Stop listening for notifications
+      # http://www.postgresql.org/docs/current/static/sql-unlisten.html
+      def unlisten(channel = @pg_channel)
+        @pg.exec("UNLISTEN #{channel}")
       end
   end
 end
