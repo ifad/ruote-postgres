@@ -49,7 +49,7 @@ describe Ruote::Postgres::Storage do
     describe "#put" do
       context "with new document" do
         it "works" do
-          subject.put({ "type" => "expressions", "_id" => "1" })
+          p subject.put({ "type" => "expressions", "_id" => "1" })
           pg.query("select * from documents").values.should_not be_empty
         end
       end

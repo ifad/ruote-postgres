@@ -278,10 +278,8 @@ module Postgres
         doc = doc.send( update_rev ? :merge! : :merge, { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
         i = @pg.exec_params(
-          [
-            'INSERT INTO $1(ide, rev, typ, doc, wfid, participant_name) VALUES($2, $3::int, $4, $5, $6, $7)',
-            @table,doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '')
-          ]
+          "INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name) VALUES($1, $2::int, $3, $4, $5, $6)",
+          [ doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '') ]
         )
 
         notify('INSERT')
