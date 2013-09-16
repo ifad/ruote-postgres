@@ -139,6 +139,23 @@ module Postgres
         do_insert(doc, nrev, opts[:update_rev])
 
       rescue ::PG::Error => de
+        $stderr.puts [
+          de.result.error_field( PG::Result::PG_DIAG_SEVERITY ),
+          de.result.error_field( PG::Result::PG_DIAG_SQLSTATE ),
+          de.result.error_field( PG::Result::PG_DIAG_MESSAGE_PRIMARY ),
+          de.result.error_field( PG::Result::PG_DIAG_MESSAGE_DETAIL ),
+          de.result.error_field( PG::Result::PG_DIAG_MESSAGE_HINT ),
+          de.result.error_field( PG::Result::PG_DIAG_STATEMENT_POSITION ),
+          de.result.error_field( PG::Result::PG_DIAG_INTERNAL_POSITION ),
+          de.result.error_field( PG::Result::PG_DIAG_INTERNAL_QUERY ),
+          de.result.error_field( PG::Result::PG_DIAG_CONTEXT ),
+          de.result.error_field( PG::Result::PG_DIAG_SOURCE_FILE ),
+          de.result.error_field( PG::Result::PG_DIAG_SOURCE_LINE ),
+          de.result.error_field( PG::Result::PG_DIAG_SOURCE_FUNCTION ),
+        ].inspect
+
+        $stderr.puts de.result.error_message
+
         return (get(doc['type'], doc['_id']) || true) # failure
       end
 
@@ -258,17 +275,14 @@ module Postgres
       end
 
       def do_insert(doc, rev, update_rev=false)
-        doc = doc.send(
-          update_rev ? :merge! : :merge,
-          { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
+        doc = doc.send( update_rev ? :merge! : :merge, { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-        i = @pg.exec(%{INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name)
-                            VALUES('#{(doc['_id'])}',
-                                   #{(rev || 1)},
-                                   '#{(doc['type'])}',
-                                   '#{(Rufus::Json.encode(doc) || '')}',
-                                   '#{(extract_wfid(doc) || '')}',
-                                   '#{(doc['participant_name'] || '')}')})
+        i = @pg.exec_params(
+          [
+            'INSERT INTO $1(ide, rev, typ, doc, wfid, participant_name) VALUES($2, $3::int, $4, $5, $6, $7)',
+            @table,doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '')
+          ]
+        )
 
         notify('INSERT')
 
