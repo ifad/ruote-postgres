@@ -116,10 +116,6 @@ module Postgres
       @pg_channel = "ruote_postgres"
       @table      = (options['pg_table_name'] || :documents).to_sym
 
-      # It is a good idea to unlisten first to ensure that non old instances or
-      # connections start spinning
-      unlisten
-
       replace_engine_configuration(options)
     end
 
@@ -164,8 +160,6 @@ module Postgres
                        ide='#{doc['_id']}' AND
                        rev<#{nrev}})
 
-      notify('DELETE')
-
       nil # success
     end
 
@@ -183,8 +177,6 @@ module Postgres
                          RETURNING *}).count
 
       return (get(doc['type'], doc['_id']) || true) if count < 1 # failure
-
-      notify('DELETE')
 
       nil # success
     end
@@ -225,21 +217,9 @@ module Postgres
     # Nukes all the documents in this storage.
     #
     def purge!
-      d = @pg.exec("DELETE FROM #{@table}")
-
-      notify('DELETE')
-
-      d
+      @pg.exec("DELETE FROM #{@table}")
     end
     alias :clear :purge!
-
-    def shutdown
-      unlisten
-    end
-
-    def close
-      unlisten
-    end
 
     # Mainly used by ruote's test/unit/ut_17_storage.rb
     #
@@ -250,16 +230,7 @@ module Postgres
     # Nukes a db type and reputs it (losing all the documents that were in it).
     #
     def purge_type!(type)
-      d = @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
-
-      notify('DELETE')
-
-      d
-    end
-
-    def wait_for_notify(timeout = nil, &block)
-      @listen ||= listen
-      @pg.wait_for_notify(timeout, &block)
+      @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
     end
 
     protected
@@ -277,14 +248,10 @@ module Postgres
       def do_insert(doc, rev, update_rev=false)
         doc = doc.send( update_rev ? :merge! : :merge, { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-        i = @pg.exec_params(
+        @pg.exec_params(
           "INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name) VALUES($1, $2::int, $3, $4, $5, $6)",
           [ doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '') ]
         )
-
-        notify('INSERT')
-
-        i
       end
 
       def extract_wfid(doc)
@@ -307,24 +274,6 @@ module Postgres
 
       def has_json?
         server_version[0] >= 9 && server_version[1] >= 2
-      end
-
-      # Listen for notifications on the given channel
-      # http://www.postgresql.org/docs/current/static/sql-listen.html
-      def listen(channel = @pg_channel)
-        @pg.exec("LISTEN #{channel}")
-      end
-
-      # Notify the given message
-      # http://www.postgresql.org/docs/current/static/sql-notify.html
-      def notify(msg, channel = @pg_channel)
-        @pg.exec("NOTIFY #{channel}, '#{Time.now.to_f.to_s}::#{msg}'")
-      end
-
-      # Stop listening for notifications
-      # http://www.postgresql.org/docs/current/static/sql-unlisten.html
-      def unlisten(channel = @pg_channel)
-        @pg.exec("UNLISTEN #{channel}")
       end
   end
 end
