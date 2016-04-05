@@ -31,8 +31,6 @@ LISTEN and NOTIFY to watch for events.
   s.add_dependency 'yajl-ruby'
   s.add_dependency 'json'
 
-  s.add_development_dependency 'debugger'
-
   s.require_path = 'lib'
 end
 
