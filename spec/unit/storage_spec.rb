@@ -49,7 +49,7 @@ describe Ruote::Postgres::Storage do
     describe "#put" do
       context "with new document" do
         it "works" do
-          p subject.put({ "type" => "expressions", "_id" => "1" })
+          subject.put({ "type" => "expressions", "_id" => "1" })
           expect(pg.query("select * from documents").values).not_to be_empty
         end
       end
@@ -70,13 +70,34 @@ describe Ruote::Postgres::Storage do
         expect(subject.put({"type" => "expressions", "_id" => "4", "_rev" => 1})).to be_nil
       end
 
+      it "is thread safe" do
+        threads = 4.times.map do |i|
+          Thread.new do
+            subject.put({ "type" => "expressions", "_id" => i.to_s })
+          end
+        end
+
+        threads.each(&:join)
+        expect(count(pg, table_name, "WHERE typ='expressions'")).to eq(4)
+      end
     end
 
     describe "#get" do
       it "returns the document that matches the given type ans key" do
-        doc =  insert(pg, table_name, typ: 'msgs', ide: '1')
-
+        doc = insert(pg, table_name, typ: 'msgs', ide: '1')
         expect(subject.get('msgs', '1')).to eq(doc)
+      end
+
+      it "is thread safe" do
+        doc = insert(pg, table_name, typ: 'msgs', ide: '1')
+
+        threads = 4.times.map do
+          Thread.new do
+            expect(subject.get('msgs', '1')).to eq(doc)
+          end
+        end
+
+        threads.each(&:join)
       end
     end
 
@@ -100,6 +121,20 @@ describe Ruote::Postgres::Storage do
       it "returns nil when successfully removed" do
         expect(subject.delete({"type" => "expressions", "_id" => "3", "_rev" => 1})).to be_nil
       end
+
+      it "is thread safe" do
+        threads = 4.times.map do |i|
+          Thread.new do
+            if i == 0
+              expect(subject.delete({"type" => "expressions", "_id" => "3", "_rev" => 1})).to be_nil
+            else
+              expect(subject.delete({"type" => "expressions", "_id" => "4", "_rev" => 1})).to be_truthy
+            end
+          end
+        end
+
+        threads.each(&:join)
+      end
     end
 
     describe "#get_many" do
@@ -113,6 +148,16 @@ describe Ruote::Postgres::Storage do
         it "return an array of matching documents whitout any opts" do
           expect(subject.get_many("expressions")).to match_array([{"type" => "expressions", "_id" => "3", "_rev" => 1, "c" => "d"},
                                                      {"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}])
+        end
+
+        it "is thread safe" do
+          threads = 4.times.map do
+            Thread.new do
+              expect(subject.get_many("expressions")).to match_array([{"type" => "expressions", "_id" => "3", "_rev" => 1, "c" => "d"},
+                                                     {"type" => "expressions", "_id" => "2", "_rev" => 1, "a" => "b"}])
+            end
+          end
+          threads.each(&:join)
         end
       end
 
@@ -170,6 +215,15 @@ describe Ruote::Postgres::Storage do
       it "returns a list of id's for the matching documents" do
         expect(subject.ids("expressions")).to match_array([ '2', '3' ])
       end
+
+      it "is thread safe" do
+        threads = 4.times.map do
+          Thread.new do
+            expect(subject.ids("expressions")).to match_array([ '2', '3' ])
+          end
+        end
+        threads.each(&:join)
+      end
     end
 
     describe "#clear" do
@@ -184,6 +238,17 @@ describe Ruote::Postgres::Storage do
 
         expect(count(pg, table_name)).to eq(0)
       end
+
+      it "is thread safe" do
+        threads = 4.times.map do
+          Thread.new do
+            subject.clear
+          end
+        end
+        threads.each(&:join)
+
+        expect(count(pg, table_name)).to eq(0)
+      end
     end
 
     describe "#purge!" do
@@ -195,6 +260,17 @@ describe Ruote::Postgres::Storage do
 
       it "cleans the store" do
         subject.purge!
+
+        expect(count(pg, table_name)).to eq(0)
+      end
+
+      it "is thread safe" do
+        threads = 4.times.map do
+          Thread.new do
+            subject.purge!
+          end
+        end
+        threads.each(&:join)
 
         expect(count(pg, table_name)).to eq(0)
       end
@@ -220,18 +296,17 @@ describe Ruote::Postgres::Storage do
 
         expect(count(pg, table_name, "WHERE typ='expressions'")).to eq(0)
       end
-    end
-  end
 
+      it "is thread safe" do
+        threads = 4.times.map do
+          Thread.new do
+            subject.purge_type!("expressions")
+          end
+        end
+        threads.each(&:join)
 
-  describe "instance methods" do
-    describe "#put_msg" do
-    end
-
-    describe "#reserve" do
-    end
-
-    describe "#put_schedule" do
+        expect(count(pg, table_name, "WHERE typ='expressions'")).to eq(0)
+      end
     end
   end
 end
