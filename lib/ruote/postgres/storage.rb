@@ -23,12 +23,7 @@
 # Made in Roma.
 #++
 
-begin
-  require 'yajl'
-rescue LoadError => le
-  require 'json'
-end
-
+require 'json'
 require 'pg'
 require 'rufus/json'
 require 'ruote/storage/base'

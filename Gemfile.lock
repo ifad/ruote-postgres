@@ -2,11 +2,9 @@ PATH
   remote: .
   specs:
     ruote-postgres (0.0.1)
-      json
       pg
       rake
       ruote
-      yajl-ruby
 
 GEM
   remote: https://rubygems.org/
@@ -15,7 +13,6 @@ GEM
     diff-lcs (1.2.5)
     file-tail (1.1.0)
       tins (~> 1.0)
-    json (1.8.3)
     parslet (1.4.0)
       blankslate (~> 2.0)
     pg (0.18.4)
@@ -68,7 +65,6 @@ GEM
     tins (1.9.0)
     tzinfo (1.2.2)
       thread_safe (~> 0.1)
-    yajl-ruby (1.2.1)
 
 PLATFORMS
   ruby

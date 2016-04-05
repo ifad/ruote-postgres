@@ -8,6 +8,8 @@ Gem::Specification.new do |s|
     File.expand_path('../lib/ruote/postgres/version.rb', __FILE__)
   ).match(/ VERSION *= *['"]([^'"]+)/)[1]
 
+  s.required_ruby_version = '>= 1.9.3'
+
   s.platform = Gem::Platform::RUBY
   s.authors = [ 'Lleir Borras Metje' ]
   s.email = [ 'l.borrasmetje@ifad.org' ]
@@ -28,8 +30,6 @@ LISTEN and NOTIFY to watch for events.
 
   s.add_dependency 'rake'
   s.add_dependency 'pg'
-  s.add_dependency 'yajl-ruby'
-  s.add_dependency 'json'
 
   s.require_path = 'lib'
 end
