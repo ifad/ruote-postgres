@@ -13,7 +13,7 @@ describe Ruote::Postgres do
 
     describe "with default arguments" do
       it "queries if the table exist" do
-        klass.should_receive(:table_exists?).with(pg, table_name)
+        expect(klass).to receive(:table_exists?).with(pg, table_name)
         klass.create_table(pg)
       end
 
@@ -21,13 +21,13 @@ describe Ruote::Postgres do
         create_table(pg, table_name)
         klass.create_table(pg)
 
-        columns(pg, table_name).should =~ %w{ ide }
+        expect(columns(pg, table_name)).to match_array(%w{ ide })
       end
 
       it "it creates the table" do
         klass.create_table(pg)
 
-        columns(pg, table_name).should =~ %w{ ide rev typ doc wfid participant_name }
+        expect(columns(pg, table_name)).to match_array(%w{ ide rev typ doc wfid participant_name })
       end
     end
 
@@ -36,7 +36,7 @@ describe Ruote::Postgres do
         create_table(pg, table_name)
         klass.create_table(pg, true)
 
-        columns(pg, table_name).should =~ %w{ ide rev typ doc wfid participant_name }
+        expect(columns(pg, table_name)).to match_array(%w{ ide rev typ doc wfid participant_name })
       end
     end
 
@@ -46,7 +46,7 @@ describe Ruote::Postgres do
       it "it removes the table if it already exist" do
         klass.create_table(pg, false, table_name)
 
-        columns(pg, table_name).should =~ %w{ ide rev typ doc wfid participant_name }
+        expect(columns(pg, table_name)).to match_array(%w{ ide rev typ doc wfid participant_name })
       end
     end
   end
@@ -54,11 +54,11 @@ describe Ruote::Postgres do
   describe "#table_exists?" do
     it "returns true if it exists" do
       create_table(pg, table_name)
-      klass.table_exists?(pg, table_name).should be_true
+      expect(klass.table_exists?(pg, table_name)).to be_truthy
     end
 
     it "returns false if it doesn't exist" do
-      klass.table_exists?(pg, table_name).should be_false
+      expect(klass.table_exists?(pg, table_name)).to be_falsey
     end
   end
 end

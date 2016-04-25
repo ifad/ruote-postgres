@@ -23,12 +23,7 @@
 # Made in Roma.
 #++
 
-begin
-  require 'yajl'
-rescue LoadError => le
-  require 'json'
-end
-
+require 'json'
 require 'pg'
 require 'rufus/json'
 require 'ruote/storage/base'
@@ -48,7 +43,6 @@ module Postgres
   # something else with the optional third parameter
   #
   def self.create_table(pg, re_create=false, table_name='documents')
-
     table_exists = table_exists?(pg, table_name)
 
     pg.exec("DROP TABLE #{table_name}") if re_create && table_exists
@@ -65,7 +59,6 @@ module Postgres
       pg.exec("CREATE INDEX #{table_name}_wfid_index ON #{table_name} USING btree (wfid)")
       pg.exec("ALTER TABLE ONLY #{table_name} ADD CONSTRAINT #{table_name}_pkey PRIMARY KEY (typ, ide, rev)")
     end
-
   end
 
   def self.table_exists?(pg, table_name)
@@ -109,12 +102,11 @@ module Postgres
     # The underlying Postgres::Database instance
     #
     attr_reader :pg
-    attr_reader :pg_channel
 
     def initialize(pg, options={})
-      @pg         = pg
-      @pg_channel = "ruote_postgres"
-      @table      = (options['pg_table_name'] || :documents).to_sym
+      @mutex = Mutex.new
+      @pg    = pg
+      @table = (options['pg_table_name'] || :documents).to_sym
 
       replace_engine_configuration(options)
     end
@@ -155,10 +147,12 @@ module Postgres
         return (get(doc['type'], doc['_id']) || true) # failure
       end
 
-      @pg.exec(%{DELETE FROM #{@table}
-                 WHERE typ='#{doc['type']}' AND
-                       ide='#{doc['_id']}' AND
-                       rev<#{nrev}})
+      @mutex.synchronize do
+        @pg.exec(%{DELETE FROM #{@table}
+                   WHERE typ='#{doc['type']}' AND
+                         ide='#{doc['_id']}' AND
+                         rev<#{nrev}})
+      end
 
       nil # success
     end
@@ -170,11 +164,13 @@ module Postgres
     def delete(doc)
       raise ArgumentError.new('no _rev for doc') unless doc['_rev']
 
-      count = @pg.exec(%{DELETE FROM #{@table}
-                         WHERE typ='#{doc['type']}' AND
-                               ide='#{doc['_id']}' AND
-                               rev=#{doc['_rev'].to_i}
-                         RETURNING *}).count
+      count = @mutex.synchronize do
+        @pg.exec(%{DELETE FROM #{@table}
+                    WHERE typ='#{doc['type']}' AND
+                          ide='#{doc['_id']}' AND
+                          rev=#{doc['_rev'].to_i}
+                    RETURNING *}).count
+      end
 
       return (get(doc['type'], doc['_id']) || true) if count < 1 # failure
 
@@ -188,13 +184,19 @@ module Postgres
 
       ds += " AND wfid in ('#{keys.join("','")}') " if keys && keys.first.is_a?(String)
 
-      return @pg.exec("SELECT count(*) as count" + ds)[0]["count"].to_i if opts[:count]
+      if opts[:count]
+        return @mutex.synchronize do
+          @pg.exec("SELECT count(*) as count" + ds)[0]["count"].to_i
+        end
+      end
 
       ds += " ORDER BY ide #{opts[:descending] ? "DESC" : "ASC"}, rev DESC"
       ds += " LIMIT #{opts[:limit]} " if opts[:limit]
       ds += " OFFSET #{opts[:skip] || opts[:offset]} " if opts[:skip] || opts[:offset]
 
-      docs = @pg.exec("SELECT * " + ds).collect { |d| decode_doc(d) }
+      docs = @mutex.synchronize do
+        @pg.exec("SELECT * " + ds).collect { |d| decode_doc(d) }
+      end
 
       if keys && keys.first.is_a?(Regexp)
         docs.select { |doc| keys.find { |key| key.match(doc['_id']) } }
@@ -209,15 +211,19 @@ module Postgres
     # Returns all the ids of the documents of a given type.
     #
     def ids(type)
-      @pg.exec(%{SELECT DISTINCT(ide) FROM #{@table}
-                 WHERE typ='#{type}'
-                 ORDER BY ide}).collect{|row| row["ide"]}
+      @mutex.synchronize do
+        @pg.exec(%{SELECT DISTINCT(ide) FROM #{@table}
+                   WHERE typ='#{type}'
+                   ORDER BY ide}).collect{|row| row["ide"]}
+      end
     end
 
     # Nukes all the documents in this storage.
     #
     def purge!
-      @pg.exec("DELETE FROM #{@table}")
+      @mutex.synchronize do
+        @pg.exec("DELETE FROM #{@table}")
+      end
     end
     alias :clear :purge!
 
@@ -230,7 +236,9 @@ module Postgres
     # Nukes a db type and reputs it (losing all the documents that were in it).
     #
     def purge_type!(type)
-      @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
+      @mutex.synchronize do
+        @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
+      end
     end
 
     protected
@@ -248,10 +256,12 @@ module Postgres
       def do_insert(doc, rev, update_rev=false)
         doc = doc.send( update_rev ? :merge! : :merge, { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-        @pg.exec_params(
-          "INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name) VALUES($1, $2::int, $3, $4, $5, $6)",
-          [ doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '') ]
-        )
+        @mutex.synchronize do
+          @pg.exec_params(
+            "INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name) VALUES($1, $2::int, $3, $4, $5, $6)",
+            [ doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '') ]
+          )
+        end
       end
 
       def extract_wfid(doc)
@@ -259,17 +269,21 @@ module Postgres
       end
 
       def do_get(type, key)
-        d = @pg.exec(%{SELECT doc FROM #{@table}
-                       WHERE typ='#{type}' AND
-                             ide='#{key}'
-                       ORDER BY rev DESC
-                       LIMIT 1 OFFSET 0})
+        d = @mutex.synchronize do
+          @pg.exec(%{SELECT doc FROM #{@table}
+                     WHERE typ='#{type}' AND
+                           ide='#{key}'
+                     ORDER BY rev DESC
+                     LIMIT 1 OFFSET 0})
+        end
 
         decode_doc(d[0]) if d.count > 0
       end
 
       def server_version
-        @server_version ||= @pg.exec("show server_version")[0]["server_version"].split(".").map(&:to_i)
+        @server_version ||= @mutex.synchronize do
+          @pg.exec("show server_version")[0]["server_version"].split(".").map(&:to_i)
+        end
       end
 
       def has_json?
