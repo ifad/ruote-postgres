@@ -32,6 +32,11 @@ require 'ruote/postgres/version'
 
 module Ruote
 module Postgres
+  CONNECTION_ERRORS = [
+    PG::AdminShutdown,
+    PG::UnableToSend,
+    PG::ConnectionBad
+  ]
 
   # Creates the 'documents' table necessary for this storage.
   #
@@ -106,7 +111,9 @@ module Postgres
     def initialize(pg, options={})
       @mutex = Mutex.new
       @pg    = pg
-      @table = (options['pg_table_name'] || :documents).to_sym
+
+      @table                     = (options['pg_table_name'] || :documents).to_sym
+      @abort_on_connection_error = (options['abort_on_connection_error'] || true)
 
       replace_engine_configuration(options)
     end
@@ -147,7 +154,7 @@ module Postgres
         return (get(doc['type'], doc['_id']) || true) # failure
       end
 
-      @mutex.synchronize do
+      safe_pg do
         @pg.exec(%{DELETE FROM #{@table}
                    WHERE typ='#{doc['type']}' AND
                          ide='#{doc['_id']}' AND
@@ -164,7 +171,7 @@ module Postgres
     def delete(doc)
       raise ArgumentError.new('no _rev for doc') unless doc['_rev']
 
-      count = @mutex.synchronize do
+      count = safe_pg do
         @pg.exec(%{DELETE FROM #{@table}
                     WHERE typ='#{doc['type']}' AND
                           ide='#{doc['_id']}' AND
@@ -185,7 +192,7 @@ module Postgres
       ds += " AND wfid in ('#{keys.join("','")}') " if keys && keys.first.is_a?(String)
 
       if opts[:count]
-        return @mutex.synchronize do
+        return safe_pg do
           @pg.exec("SELECT count(*) as count" + ds)[0]["count"].to_i
         end
       end
@@ -194,7 +201,7 @@ module Postgres
       ds += " LIMIT #{opts[:limit]} " if opts[:limit]
       ds += " OFFSET #{opts[:skip] || opts[:offset]} " if opts[:skip] || opts[:offset]
 
-      docs = @mutex.synchronize do
+      docs = safe_pg do
         @pg.exec("SELECT * " + ds).collect { |d| decode_doc(d) }
       end
 
@@ -211,7 +218,7 @@ module Postgres
     # Returns all the ids of the documents of a given type.
     #
     def ids(type)
-      @mutex.synchronize do
+      safe_pg do
         @pg.exec(%{SELECT DISTINCT(ide) FROM #{@table}
                    WHERE typ='#{type}'
                    ORDER BY ide}).collect{|row| row["ide"]}
@@ -221,7 +228,7 @@ module Postgres
     # Nukes all the documents in this storage.
     #
     def purge!
-      @mutex.synchronize do
+      safe_pg do
         @pg.exec("DELETE FROM #{@table}")
       end
     end
@@ -236,7 +243,7 @@ module Postgres
     # Nukes a db type and reputs it (losing all the documents that were in it).
     #
     def purge_type!(type)
-      @mutex.synchronize do
+      safe_pg do
         @pg.exec("DELETE FROM #{@table} WHERE typ='#{type}'")
       end
     end
@@ -256,7 +263,7 @@ module Postgres
       def do_insert(doc, rev, update_rev=false)
         doc = doc.send( update_rev ? :merge! : :merge, { '_rev' => rev, 'put_at' => Ruote.now_to_utc_s })
 
-        @mutex.synchronize do
+        safe_pg do
           @pg.exec_params(
             "INSERT INTO #{@table}(ide, rev, typ, doc, wfid, participant_name) VALUES($1, $2::int, $3, $4, $5, $6)",
             [ doc['_id'], (rev || 1), doc['type'], (Rufus::Json.encode(doc) || ''), (extract_wfid(doc) || ''), (doc['participant_name'] || '') ]
@@ -269,7 +276,7 @@ module Postgres
       end
 
       def do_get(type, key)
-        d = @mutex.synchronize do
+        d = safe_pg do
           @pg.exec(%{SELECT doc FROM #{@table}
                      WHERE typ='#{type}' AND
                            ide='#{key}'
@@ -281,13 +288,25 @@ module Postgres
       end
 
       def server_version
-        @server_version ||= @mutex.synchronize do
+        @server_version ||= safe_pg do
           @pg.exec("show server_version")[0]["server_version"].split(".").map(&:to_i)
         end
       end
 
       def has_json?
         server_version[0] >= 9 && server_version[1] >= 2
+      end
+
+      def safe_pg(&block)
+        @mutex.synchronize do
+          yield
+        end
+      rescue *CONNECTION_ERRORS => e
+        if @abort_on_connection_error
+          abort "ruote-postgres fatal error: #{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
+        else
+          raise e
+        end
       end
   end
 end
