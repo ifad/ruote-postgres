@@ -112,8 +112,8 @@ module Postgres
       @mutex = Mutex.new
       @pg    = pg
 
-      @table                     = (options['pg_table_name'] || :documents).to_sym
-      @abort_on_connection_error = (options['abort_on_connection_error'] || true)
+      @table                     = options.fetch('pg_table_name', :documents).to_sym
+      @abort_on_connection_error = options.fetch('abort_on_connection_error', true)
 
       replace_engine_configuration(options)
     end
