@@ -112,8 +112,8 @@ module Postgres
       @mutex = Mutex.new
       @pg    = pg
 
-      @table                    = (options['pg_table_name'] || :documents).to_sym
-      @keep_on_connection_error = options['keep_on_connection_error']
+      @table                     = options.fetch('pg_table_name', :documents).to_sym
+      @abort_on_connection_error = options.fetch('abort_on_connection_error', true)
 
       replace_engine_configuration(options)
     end
@@ -302,10 +302,10 @@ module Postgres
           yield
         end
       rescue *CONNECTION_ERRORS => e
-        if @keep_on_connection_error
-          raise e
-        else
+        if @abort_on_connection_error
           abort "ruote-postgres fatal error: #{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
+        else
+          raise e
         end
       end
   end
