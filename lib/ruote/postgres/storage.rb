@@ -114,6 +114,7 @@ module Postgres
 
       @table                     = options.fetch('pg_table_name', :documents).to_sym
       @abort_on_connection_error = options.fetch('abort_on_connection_error', true)
+      @retry_on_connection_error = options.fetch('retry_on_connection_error', false)
 
       replace_engine_configuration(options)
     end
@@ -297,14 +298,30 @@ module Postgres
         server_version[0] >= 9 && server_version[1] >= 2
       end
 
+      def reconnect
+        @pg = db_connect
+      end
+
+      def db_connect
+        PGconn.connect_start(@pg.host, @pg.port, @pg.options, @pg.tty, @pg.db, @pg.user, @pg.pass)
+      end
+
       def safe_pg(&block)
+        retries ||= 0
+
         @mutex.synchronize do
           yield
         end
       rescue *CONNECTION_ERRORS => e
+        if @retry_on_connection_error && retries < 1
+          retries += 1
+          reconnect && retry
+        end
+
         if @abort_on_connection_error
           abort "ruote-postgres fatal error: #{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
         else
+
           raise e
         end
       end
