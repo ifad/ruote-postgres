@@ -109,7 +109,6 @@ module Postgres
     attr_reader :pg
 
     def initialize(pg, options={})
-      $stderr.puts "INITIALIZE #{pg}"
       @mutex = Mutex.new
       @pg    = pg
 
@@ -300,12 +299,12 @@ module Postgres
       end
 
       def reconnect
-        @stderr.puts "RECONNECT"
+        @stderr.puts "[RP] RECONNECT"
         @pg = db_connect
       end
 
       def db_connect
-        $stderr.puts "DB_CONNECT #{@pg.host}, #{@pg.port}, #{@pg.options}, #{@pg.tty}, #{@pg.db}, #{@pg.user}, #{@pg.pass}"
+        $stderr.puts "[RP] DB_CONNECT #{@pg.host}, #{@pg.port}, #{@pg.options}, #{@pg.tty}, #{@pg.db}, #{@pg.user}, #{@pg.pass}"
         PGconn.connect_start(@pg.host, @pg.port, @pg.options, @pg.tty, @pg.db, @pg.user, @pg.pass)
       end
 
@@ -316,13 +315,14 @@ module Postgres
           yield
         end
       rescue *CONNECTION_ERRORS => e
-        $stderr.puts "CONNECTION ERROR => Retries #{retries}"
+        $stderr.puts "[RP] CONNECTION_ERROR => Retries #{retries}"
         $stderr.puts e
         result = if retries < @retries_on_connection_error
           retries += 1
           reconnect && retry
         end
 
+        $stderr.puts result
         unless result
           if @abort_on_connection_error
             abort "ruote-postgres fatal error: #{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
