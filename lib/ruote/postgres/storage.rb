@@ -299,7 +299,7 @@ module Postgres
       end
 
       def reconnect
-        @stderr.puts "[RP] #{Time.now} RECONNECT"
+        $stderr.puts "[RP] #{Time.now} RECONNECT"
         @pg = db_connect
       end
 
