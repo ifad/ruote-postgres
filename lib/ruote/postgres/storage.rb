@@ -299,12 +299,12 @@ module Postgres
       end
 
       def reconnect
-        @stderr.puts "[RP] RECONNECT"
+        @stderr.puts "[RP] #{Time.now} RECONNECT"
         @pg = db_connect
       end
 
       def db_connect
-        $stderr.puts "[RP] DB_CONNECT #{@pg.host}, #{@pg.port}, #{@pg.options}, #{@pg.tty}, #{@pg.db}, #{@pg.user}, #{@pg.pass}"
+        $stderr.puts "[RP] #{Time.now} DB_CONNECT #{@pg.host}, #{@pg.port}, #{@pg.options}, #{@pg.tty}, #{@pg.db}, #{@pg.user}, #{@pg.pass}"
         PGconn.connect_start(@pg.host, @pg.port, @pg.options, @pg.tty, @pg.db, @pg.user, @pg.pass)
       end
 
@@ -315,7 +315,7 @@ module Postgres
           yield
         end
       rescue *CONNECTION_ERRORS => e
-        $stderr.puts "[RP] CONNECTION_ERROR => Retries #{retries}"
+        $stderr.puts "[RP] #{Time.now} CONNECTION_ERROR => Retries #{retries}"
         $stderr.puts e
         result = if retries < @retries_on_connection_error
           retries += 1
