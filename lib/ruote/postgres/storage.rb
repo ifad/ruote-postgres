@@ -315,7 +315,7 @@ module Postgres
           yield
         end
       rescue *CONNECTION_ERRORS => e
-        $stderr.puts "[RP] #{Time.now} CONNECTION_ERROR => Retries #{retries}"
+        $stderr.puts "[RP] #{Time.now} CONNECTION_ERROR => Retries #{retries} out of #{@retries_on_connection_error}"
         $stderr.puts e
         result = if retries < @retries_on_connection_error
           retries += 1
