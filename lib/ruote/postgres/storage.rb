@@ -304,8 +304,8 @@ module Postgres
       end
 
       def db_connect
-        $stderr.puts "[RP] #{Time.now} DB_CONNECT #{@pg.host}, #{@pg.port}, #{@pg.options}, #{@pg.tty}, #{@pg.db}, #{@pg.user}, #{@pg.pass}"
-        PGconn.connect_start(@pg.host, @pg.port, @pg.options, @pg.tty, @pg.db, @pg.user, @pg.pass)
+        $stderr.puts "[RP] #{Time.now} DB_CONNECT host: #{@pg.host}, port: #{@pg.port}, options: #{@pg.options}, tty: #{@pg.tty}, dbname: #{@pg.db}, user: #{@pg.user}, password: #{@pg.pass}"
+        PG.connect(host: @pg.host, port: @pg.port, dbname: @pg.db, user: @pg.user, password: @pg.pass, options: @pg.options, tty: @pg.tty)
       end
 
       def safe_pg(&block)
