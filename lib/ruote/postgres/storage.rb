@@ -304,7 +304,7 @@ module Postgres
       end
 
       def db_connect
-        $stderr.puts "[RP] #{Time.now} DB_CONNECT host: #{@pg.host}, port: #{@pg.port}, options: #{@pg.options}, tty: #{@pg.tty}, dbname: #{@pg.db}, user: #{@pg.user}, password: #{@pg.pass}"
+        $stderr.puts "[RP] #{Time.now} DB_CONNECT host: #{@pg.host}, port: #{@pg.port}, options: #{@pg.options}, tty: #{@pg.tty}, dbname: #{@pg.db}, user: #{@pg.user}, password: FooBarBaz123"
         PG.connect(host: @pg.host, port: @pg.port, dbname: @pg.db, user: @pg.user, password: @pg.pass, options: @pg.options, tty: @pg.tty)
       end
 
