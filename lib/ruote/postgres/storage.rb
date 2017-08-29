@@ -29,7 +29,6 @@ require 'rufus/json'
 require 'ruote/storage/base'
 require 'ruote/postgres/version'
 
-
 module Ruote
 module Postgres
   CONNECTION_ERRORS = [
@@ -300,17 +299,11 @@ module Postgres
 
       def reconnect
         $stderr.puts "[RP] #{Time.now} RECONNECT"
-        @pg = db_connect
-      end
-
-      def db_connect
-        $stderr.puts "[RP] #{Time.now} DB_CONNECT host: #{@pg.host}, port: #{@pg.port}, options: #{@pg.options}, tty: #{@pg.tty}, dbname: #{@pg.db}, user: #{@pg.user}, password: FooBarBaz123"
-        PG.connect(host: @pg.host, port: @pg.port, dbname: @pg.db, user: @pg.user, password: @pg.pass, options: @pg.options, tty: @pg.tty)
+        @pg.reset
       end
 
       def safe_pg(&block)
         retries ||= 0
-
         @mutex.synchronize do
           yield
         end
