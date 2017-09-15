@@ -312,6 +312,7 @@ module Postgres
         $stderr.puts e
         result = if retries < @retries_on_connection_error
           retries += 1
+          sleep 0.5
           reconnect && retry
         end
 
