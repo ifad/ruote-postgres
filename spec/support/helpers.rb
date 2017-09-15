@@ -7,6 +7,10 @@ module Ruote
         PG.connect(config)
       end
 
+      def db_unable_to_send_connect()
+        PGconn.connect_start( '127.0.0.1', 54320, "", "", "me", "xxxx", "somedb" )
+      end
+
       def columns(pg, table)
         pg.exec(%{SELECT attname FROM pg_attribute, pg_type
                   WHERE typname = '#{table}'

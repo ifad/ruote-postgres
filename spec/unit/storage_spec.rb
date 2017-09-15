@@ -43,6 +43,42 @@ describe Ruote::Postgres::Storage do
     end
   end
 
+  describe "connection errors" do
+    subject do
+      Ruote::Postgres::Storage.new(pg, storage_options.merge({'abort_on_connection_error' => false})).tap do |rps|
+        rps.instance_variable_set :@pg, db_unable_to_send_connect
+      end
+    end
+
+    context "triggers UnableToSend" do
+      let(:storage_options) { { 'retries_on_connection_error' => 0 } }
+
+      it "raises the PG error" do
+        expect { subject.get('msgs', '1') }.to raise_error(PG::UnableToSend)
+      end
+    end
+
+    context "retries on time on UnableToSend" do
+      let(:storage_options) { { 'retries_on_connection_error' => 1 } }
+
+      it "rescues the PG error" do
+        expect(subject).to receive(:db_connect).and_return(db_connect)
+
+        expect { subject.get('msgs', '1') }.not_to raise_error
+      end
+    end
+
+    context "retries many times on UnableToSend" do
+      let(:storage_options) { { 'retries_on_connection_error' => 10 } }
+
+      it "raises the PG error" do
+        expect(subject).to receive(:reconnect).exactly(10).times.and_return(db_unable_to_send_connect)
+
+        expect { subject.get('msgs', '1') }.to raise_error(PG::UnableToSend)
+      end
+    end
+  end
+
   describe "interface" do
     subject { Ruote::Postgres::Storage.new(pg) }
 

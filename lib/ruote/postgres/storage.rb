@@ -29,7 +29,6 @@ require 'rufus/json'
 require 'ruote/storage/base'
 require 'ruote/postgres/version'
 
-
 module Ruote
 module Postgres
   CONNECTION_ERRORS = [
@@ -112,8 +111,9 @@ module Postgres
       @mutex = Mutex.new
       @pg    = pg
 
-      @table                     = options.fetch('pg_table_name', :documents).to_sym
-      @abort_on_connection_error = options.fetch('abort_on_connection_error', true)
+      @table                       = options.fetch('pg_table_name', :documents).to_sym
+      @abort_on_connection_error   = options.fetch('abort_on_connection_error', true)
+      @retries_on_connection_error = options.fetch('retries_on_connection_error', 0).to_i
 
       replace_engine_configuration(options)
     end
@@ -297,15 +297,32 @@ module Postgres
         server_version[0] >= 9 && server_version[1] >= 2
       end
 
+      def reconnect
+        $stderr.puts "[RP] #{Time.now} RECONNECT"
+        @pg.reset
+      end
+
       def safe_pg(&block)
+        retries ||= 0
         @mutex.synchronize do
           yield
         end
       rescue *CONNECTION_ERRORS => e
-        if @abort_on_connection_error
-          abort "ruote-postgres fatal error: #{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
-        else
-          raise e
+        $stderr.puts "[RP] #{Time.now} CONNECTION_ERROR => Retries #{retries} out of #{@retries_on_connection_error}"
+        $stderr.puts e
+        result = if retries < @retries_on_connection_error
+          retries += 1
+          sleep 0.5
+          reconnect && retry
+        end
+
+        $stderr.puts result
+        unless result
+          if @abort_on_connection_error
+            abort "ruote-postgres fatal error: #{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
+          else
+            raise e
+          end
         end
       end
   end
